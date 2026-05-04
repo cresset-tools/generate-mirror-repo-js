@@ -201,6 +201,12 @@ function updateComposerPluginConfigForMageOs(instruction, release, composerConfi
  *
  * This also happens for the "replace" section, before the given replaceVersionMap is merged.
  *
+ * When `instruction.replaceVendorAliases` is set, each alias contributes an
+ * additional `replace` entry alongside the original vendor — useful for a
+ * fork-of-a-fork that wants its packages to evict every known upstream copy
+ * from end users' vendor/ on install (e.g. a Mage-OS downstream emitting
+ * `replace: { magento/module-X: <ver>, mage-os/module-X: <ver> }`).
+ *
  * @param {repositoryBuildDefinition} instruction
  * @param {buildState} release
  * @param {{}} composerConfig
@@ -216,7 +222,15 @@ function updateComposerConfigFromMagentoToMageOs(instruction, release, composerC
   updateComposerPluginConfigForMageOs(instruction, release, composerConfig);
 
   if (release.replaceVersions[originalPackageName]) {
-    composerConfig.replace = {[originalPackageName]: release.replaceVersions[originalPackageName]}
+    const replaceVersion = release.replaceVersions[originalPackageName];
+    const replace = {[originalPackageName]: replaceVersion};
+    for (const alias of (instruction.replaceVendorAliases || [])) {
+      const aliasedName = setMageOsVendor(originalPackageName, alias);
+      // Skip duplicates and don't replace the published package's own name.
+      if (aliasedName === originalPackageName || aliasedName === composerConfig.name) continue;
+      replace[aliasedName] = replaceVersion;
+    }
+    composerConfig.replace = replace;
   }
 }
 

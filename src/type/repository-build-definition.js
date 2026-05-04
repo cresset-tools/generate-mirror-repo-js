@@ -42,6 +42,16 @@ class repositoryBuildDefinition {
   vendor = 'magento';
 
   /**
+   * @type Array<String> Additional upstream vendor names that the published
+   *  package should declare composer `replace` entries for, alongside the
+   *  original vendor present in the source composer.json. Use this when the
+   *  build is a fork-of-a-fork — e.g. a Mage-OS-based downstream wants its
+   *  packages to evict both `magento/<X>` and `mage-os/<X>` from end users'
+   *  vendor/ on install.
+   */
+  replaceVendorAliases = [];
+
+  /**
    * @type String|null Git reference (branch, etc) to use for the build
    */
   ref = null;
@@ -85,6 +95,7 @@ class repositoryBuildDefinition {
     this.repoUrl = options.repoUrl || this.repoUrl;
 
     this.vendor = options.vendor || this.vendor;
+    this.replaceVendorAliases = options.replaceVendorAliases || this.replaceVendorAliases;
     this.ref = options.ref || this.ref;
     this.fromTag = options.fromTag || this.fromTag;
     this.skipTags = options.skipTags || this.skipTags;

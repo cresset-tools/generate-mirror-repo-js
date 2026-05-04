@@ -385,6 +385,57 @@ describe('updateComposerConfigFromMagentoToMageOs', () => {
       expect(composerConfig.replace).toBeUndefined();
     });
 
+    it('should add replace entries for replaceVendorAliases', () => {
+      const composerConfig = createComposerConfig({ name: 'magento/module-catalog' });
+      const instruction = createInstruction({
+        vendor: 'modulargento',
+        replaceVendorAliases: ['mage-os'],
+      });
+      const release = createRelease({
+        replaceVersions: { 'magento/module-catalog': '103.0.0' }
+      });
+
+      sut.updateComposerConfigFromMagentoToMageOs(instruction, release, composerConfig);
+
+      expect(composerConfig.replace).toEqual({
+        'magento/module-catalog': '103.0.0',
+        'mage-os/module-catalog': '103.0.0',
+      });
+    });
+
+    it('should not duplicate the original vendor when listed as an alias', () => {
+      const composerConfig = createComposerConfig({ name: 'magento/module-catalog' });
+      const instruction = createInstruction({
+        vendor: 'modulargento',
+        replaceVendorAliases: ['magento', 'mage-os'],
+      });
+      const release = createRelease({
+        replaceVersions: { 'magento/module-catalog': '103.0.0' }
+      });
+
+      sut.updateComposerConfigFromMagentoToMageOs(instruction, release, composerConfig);
+
+      expect(composerConfig.replace).toEqual({
+        'magento/module-catalog': '103.0.0',
+        'mage-os/module-catalog': '103.0.0',
+      });
+    });
+
+    it('should not emit a self-replace when an alias matches the build vendor', () => {
+      const composerConfig = createComposerConfig({ name: 'magento/module-catalog' });
+      const instruction = createInstruction({
+        vendor: 'mage-os',
+        replaceVendorAliases: ['mage-os'],
+      });
+      const release = createRelease({
+        replaceVersions: { 'magento/module-catalog': '103.0.0' }
+      });
+
+      sut.updateComposerConfigFromMagentoToMageOs(instruction, release, composerConfig);
+
+      expect(composerConfig.replace).toEqual({ 'magento/module-catalog': '103.0.0' });
+    });
+
     it('should transform existing replace section keys', () => {
       const composerConfig = createComposerConfig({
         name: 'magento/module-catalog',
