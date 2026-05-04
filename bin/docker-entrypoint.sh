@@ -18,6 +18,8 @@ show_help () {
 
           --mageosRelease=[1.0.0] The release version (only for build target "release")
           --mageosVendor=[mage-os] The release composer vendor name (only for build target "release")
+          --replaceVendorAliases=[mage-os,...] Comma-separated extra upstream vendor names that emitted packages
+                                  should declare composer "replace" entries for (only for build target "release")
           --upstreamRelease=[2.4.6-p1] The corresponding Magento Open Source release (only for build target "release")
 
   Possible target(s)
@@ -54,6 +56,11 @@ while [[ $# -gt 0 ]]; do
       ;;
       --mageosVendor=*)
       VENDOR="${1#*=}"
+      shift # argument + value
+
+      ;;
+      --replaceVendorAliases=*)
+      REPLACE_VENDOR_ALIASES="${1#*=}"
       shift # argument + value
 
       ;;
@@ -96,7 +103,8 @@ echo "$TARGET" | grep -q "mageos-nightly" && {
 
 echo "$TARGET" | grep -q "release" && {
   node src/make/mageos-release.js --outputDir="$OUT_DIR" --gitRepoDir="$GIT_REPO_DIR" --repoUrl="$REPO_BASE_URL" \
-    --mageosRelease="$RELEASE"  --mageosVendor="$VENDOR" --upstreamRelease="$UPSTREAM_RELEASE"
+    --mageosRelease="$RELEASE"  --mageosVendor="$VENDOR" --upstreamRelease="$UPSTREAM_RELEASE" \
+    --replaceVendorAliases="${REPLACE_VENDOR_ALIASES:-}"
 }
 
 echo Running satis...

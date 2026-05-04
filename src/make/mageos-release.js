@@ -17,7 +17,7 @@ const {fetchPackagistList} = require('../packagist');
 const buildState = require('../type/build-state');
 
 const options = parseOptions(
-  `$outputDir $gitRepoDir $repoUrl $mageosVendor $mageosRelease $upstreamRelease @skipHistory @help|h`,
+  `$outputDir $gitRepoDir $repoUrl $mageosVendor $replaceVendorAliases $mageosRelease $upstreamRelease @skipHistory @help|h`,
   process.argv
 );
 
@@ -34,6 +34,11 @@ Options:
   --gitRepoDir=      Dir to clone repositories into (default: repositories)
   --repoUrl=         Composer repository URL to use in base package (default: https://repo.mage-os.org/)
   --mageosVendor=    Composer release vendor-name (default: mage-os)
+  --replaceVendorAliases= Comma-separated extra upstream vendor names to add to the
+                     composer "replace" map of every package, alongside the original
+                     vendor. Use for fork-of-a-fork releases that should evict
+                     multiple upstream copies (e.g. --replaceVendorAliases=mage-os
+                     when --mageosVendor=modulargento).
   --mageosRelease=   Target Mage-OS release version
   --releaseRefsFile= JS file exporting a map with the git repo refs to use for the release
   --upstreamRelease= Upstream Magento Open Source release to use for package compatibility
@@ -51,6 +56,10 @@ if (options.gitRepoDir) {
 
 const mageosRelease = options.mageosRelease || '';
 const mageosVendor = options.mageosVendor || 'mage-os';
+const replaceVendorAliases = (options.replaceVendorAliases || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(s => s.length > 0);
 const mageosRepoUrl = options.repoUrl || 'https://repo.mage-os.org/';
 const upstreamRelease = options.upstreamRelease || '';
 const releaseRefsFile = options.releaseRefsFile || path.join(__dirname, `./../build-config/${mageosVendor}-release-refs/${mageosRelease}.js`);
@@ -81,6 +90,7 @@ let distroRelease = new buildState({
       console.log(`Building previous ${mageosVendor} releases`)
       for (const instruction of releaseInstructions) {
         instruction.vendor = mageosVendor;
+        instruction.replaceVendorAliases = replaceVendorAliases;
 
         await processMirrorInstruction(instruction, distroRelease);
       }
@@ -102,6 +112,7 @@ let distroRelease = new buildState({
           instruction.ref = releaseRefs[instruction.key];
         }
         instruction.vendor = mageosVendor;
+        instruction.replaceVendorAliases = replaceVendorAliases;
 
         const workBranch = await prepRelease(instruction, distroRelease)
         await repo.addUpdated(instruction.repoUrl, `'*composer.json'`)
