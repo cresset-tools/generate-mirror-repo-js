@@ -1,0 +1,46 @@
+name: "Build & deploy Modulargento release"
+
+on:
+  workflow_dispatch:
+    inputs:
+      mageos_release:
+        description: 'Modulargento release version (e.g. 3.0.0)'
+        required: true
+        default: '3.0.0'
+        type: string
+      upstream_release:
+        description: 'Magento Open Source version for compatibility (e.g. 2.4.8)'
+        required: true
+        default: '2.4.8'
+        type: string
+      repo:
+        description: 'Composer repository URL'
+        required: true
+        default: 'https://modulargento.cresset.tools/'
+        type: string
+      remote_dir:
+        description: 'Deploy target directory on the origin host'
+        required: true
+        default: '/srv/modulargento/'
+        type: string
+      remote_host:
+        description: 'SSH host to rsync to (resolves to the origin)'
+        required: true
+        default: 'modulargento.cresset.tools'
+        type: string
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/deploy.yml
+    name: "generate & deploy"
+    with:
+      repo: ${{ inputs.repo }}
+      remote_dir: ${{ inputs.remote_dir }}
+      remote_host: ${{ inputs.remote_host }}
+      entrypoint: src/make/modulargento-release.js
+      delete: true
+      mageos_release: ${{ inputs.mageos_release }}
+      upstream_release: ${{ inputs.upstream_release }}
+    secrets:
+      SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+      REMOTE_USER: ${{ secrets.REMOTE_USER }}

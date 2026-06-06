@@ -1,83 +1,96 @@
 # Modulargento composer repository
 
-Builds a Composer package repository from the cresset-tools forks and publishes
-it to <https://modulargento.cresset.tools/>.
+Builds and publishes a **release** Composer repository for the modulargento
+distribution to <https://modulargento.cresset.tools/>. Modulargento is a more
+granularly-modularized fork of Mage-OS; a release is dependency-compatible with
+the corresponding Magento Open Source version.
+
+This is a release-only repository — there is no nightly build.
 
 ## What gets built
 
-`src/make/modulargento.js` runs a **nightly-style** build (branch HEAD, versions
-date-stamped off the latest tag) over the repos declared in
-`src/build-config/modulargento-build-config.js`:
+`src/make/modulargento-release.js` (config: `src/build-config/modulargento-release-build-config.js`)
+produces, for a release `X.Y.Z`:
 
-| Repo | Ref | Notes |
-| --- | --- | --- |
-| `cresset-tools/modulargento-magento2` | `main` | The monorepo fork, split into ~243 packages (`magento/*`) + the `project`/`product-community-edition` metapackages. |
-| `cresset-tools/module-page-builder-widget` | `master` | Standalone module fork (base def from `packages-config.js`). |
-| `cresset-tools/module-admin-activity-log` | `main` | Standalone module fork (def inline in the build config). |
-| `cresset-tools/module-inventory-product-alert` | `main` | cresset-original module; no git tags — version comes from its `composer.json` (`3.0.0`). |
+1. **The monorepo**, `cresset-tools/modulargento-magento2` (`main`), split into
+   `modulargento/*` packages at `X.Y.Z`. The vendor is renamed `magento/*` →
+   `modulargento/*` and lockstep-pinned to the release version. Includes the
+   `project-`/`product-community-edition` metapackages and the
+   `modulargento/magento2-base` package (from
+   `resource/composer-templates/modulargento/magento2-base/template.json`).
+   The modularization adds two extra framework sub-packages
+   (`framework-graph-ql`, `framework-graph-ql-schema-stitching`) that are split
+   out of `modulargento/framework`.
+2. **Library/infra support packages** built from the upstream Mage-OS source
+   repos (`mageos-composer`, `mageos-magento-zend-*`, …), also renamed to
+   `modulargento/*` and lockstep-pinned — so the repository is self-contained.
+   (Feature repos like security-package/inventory/page-builder are intentionally
+   excluded; the monorepo doesn't depend on them.)
+3. **Standalone module forks** (`cresset-tools/module-admin-activity-log`,
+   `module-page-builder-widget`, `module-inventory-product-alert`) at **their
+   own versions** (latest git tag, or `composer.json` version for the untagged
+   one) — not lockstep-pinned, keeping their own package names.
 
-Everything else (security-package, inventory, the Zend forks, etc.) is unchanged
-from upstream and is expected to be layered from `mirror.mage-os.org` in a
-consuming project's `repositories`.
+Compatibility with the upstream Magento Open Source release is established via
+the composer `replace` map: each `modulargento/*` package replaces the
+corresponding `magento/*` at the `--upstreamRelease` version (fetched from the
+public `mirror.mage-os.org`).
 
-satis itself needs no per-repo config: `satis.json` is `type: artifact` +
-`require-all`, so it picks up every zip under `build/packages/`.
+Unlike the Mage-OS release flow this does **not** create or push git tags on the
+source repos — `cresset-tools/modulargento-magento2` already carries an
+inherited tag, so packages are built from a committed prep work-branch instead.
 
-## Prerequisites
+## Release via CI (primary path)
 
-- **node** + **composer** + **jq** on PATH.
-- **`bin/php-classes.phar`** (committed) — the PHP source-dependency analyzer used
-  to compute the base package's `require`. Put `bin/` on PATH so it resolves:
-  `export PATH="$PWD/bin:$PATH"`.
-- **`unzip`** CLI (composer extracts the base package's deps with it).
-- A PHP with **ext-zip** for satis. This repo carries a `bougie` project
-  (`bougie.toml` + `composer.json` requiring `ext-zip`); `bougie sync` once, then
-  run the zip-dependent steps through `bougie run` so they use the zip-enabled PHP.
-  (`composer install --ignore-platform-reqs` for the base-package analysis is
-  already baked into `src/determine-dependencies.js`, since that PHP may lack a
-  few ext-* the analysis doesn't actually need.)
+Dispatch the **Build & deploy Modulargento release** workflow
+(`.github/workflows/build-modulargento-release.yml`) with:
 
-## Build + satis
+- `mageos_release` — e.g. `3.0.0`
+- `upstream_release` — the Magento OSS version for compatibility, e.g. `2.4.8`
+- `repo` — `https://modulargento.cresset.tools/`
+- `remote_dir` — `/srv/modulargento/`
+- `remote_host` — an SSH host that resolves to the origin (e.g. `modulargento.cresset.tools`)
+
+It calls the shared `deploy.yml`, which builds, runs satis, rewrites dist URLs to
+the repo URL, and rsyncs the result to `remote_host:remote_dir`. Requires the
+repo secrets `SERVER_SSH_KEY` + `REMOTE_USER` (already configured) and the
+matching public key authorized on the origin's `deploy` user.
+
+## Local dry run
+
+Prerequisites: `node`, `composer`, `jq`, `unzip`; `bin/` on `PATH` (provides the
+committed `php-classes.phar` analyzer + a `php` shim); a PHP with `ext-zip` for
+satis — this repo carries a bougie env (`bougie.toml` + `composer.json`), so
+`bougie sync` once and run the zip-dependent steps through `bougie run`.
 
 ```sh
 export PATH="$PWD/bin:$PATH"
-bougie sync                      # materialise the zip-enabled PHP env
+bougie sync
 
-# 1. Build the packages (clones into generate-repo/repositories, zips into build/packages)
-node src/make/modulargento.js \
-  --outputDir=build/packages \
-  --gitRepoDir=generate-repo/repositories \
-  --repoUrl="https://modulargento.cresset.tools/"
+node src/make/modulargento-release.js \
+  --outputDir=build/packages --gitRepoDir=generate-repo/repositories \
+  --repoUrl=https://modulargento.cresset.tools/ \
+  --mageosVendor=modulargento --mageosRelease=3.0.0 --upstreamRelease=2.4.8
 
-# 2. satis config: homepage/repoUrl + local output paths
+# satis (needs ext-zip -> bougie run)
 node bin/set-satis-homepage-url.js --satisConfig=satis.json \
-  --repoUrl="https://modulargento.cresset.tools/" > /tmp/satis.json
+  --repoUrl=https://modulargento.cresset.tools/ > /tmp/satis.json
 cat <<< "$(jq '."output-dir"="../build" | .repositories[0].url="../build/packages"' /tmp/satis.json)" > /tmp/satis.json
 cp mageos.html.twig satis/views/mageos.html.twig
 jq -r .version package.json > satis/views/version
-
-# 3. Run satis (needs ext-zip -> bougie run), then rewrite dist URLs to the host
 cd satis && bougie run -- bin/satis build /tmp/satis.json ../build && cd ..
 cd satis && bougie run -- node ../bin/set-satis-output-url-prefix.js \
-  --satisOutputDir=../build --repoUrl="https://modulargento.cresset.tools/" && cd ..
+  --satisOutputDir=../build --repoUrl=https://modulargento.cresset.tools/ && cd ..
 ```
 
-satis is installed locally (not committed — see `.gitignore`) with composer:
+satis is installed locally (not committed) with composer:
+`bougie run -- composer create-project --no-interaction composer/satis:dev-main satis`.
+(It can't be installed via `bougie tool` — satis is `type: composer-plugin`,
+which bougie's installer skips on extract.)
 
-```sh
-bougie run -- composer create-project --no-interaction composer/satis:dev-main satis
-```
-
-> satis can't be installed via `bougie tool` yet: it's `type: composer-plugin`,
-> which bougie's installer skips on extract.
-
-## Publish
+## Publish target
 
 The deployable tree is `build/` (`packages.json`, `p2/`, `include/`,
-`index.html`, `packages/`). nginx serves it at the host root; zip URLs resolve
-under `/packages/` (immutable cache). The vhost lives in the `infra` repo
+`index.html`, `packages/`), served by nginx at the host root with `/packages/`
+under an immutable cache. The vhost lives in the `infra` repo
 (`hosts/origin/nginx.nix`, docroot `/srv/modulargento`).
-
-```sh
-rsync -avz --delete build/ deploy@<origin>:/srv/modulargento/
-```
