@@ -51,9 +51,8 @@ const monorepoPackageIndividual = monorepoSource.packageIndividual
 // magento/magento-composer-installer, the zend/zf forks, …) that lives in
 // separate Mage-OS repos. Like the Mage-OS release, we build them too (renamed
 // to the release vendor + lockstep-versioned) so the repository is
-// self-contained. Feature repos (security-package, inventory, page-builder,
-// adobe-stock, sample-data) are intentionally excluded — the monorepo does not
-// depend on them.
+// self-contained. The remaining feature repos (security-package, adobe-stock,
+// sample-data) are still excluded — the monorepo does not depend on them.
 const supportRepos = {
   'magento-composer-installer': {repoUrl: 'https://github.com/mage-os/mageos-magento-composer-installer.git', ref: 'main'},
   'composer': {repoUrl: 'https://github.com/mage-os/mageos-composer.git', ref: 'main'},
@@ -72,6 +71,58 @@ const supportRepos = {
   'magento-coding-standard': {repoUrl: 'https://github.com/mage-os/mageos-magento-coding-standard.git', ref: 'main'},
   'magento2-functional-testing-framework': {repoUrl: 'https://github.com/mage-os/mageos-magento2-functional-testing-framework.git', ref: 'main'},
   'magento-allure-phpunit': {repoUrl: 'https://github.com/mage-os/mageos-magento-allure-phpunit.git', ref: 'main'},
+};
+
+// ── Feature repos folded into the lockstep release ──────────────────────────
+// Unlike the support repos above, these ship actual storefront features. We
+// build them (renamed to modulargento/ + lockstep-versioned) so the published
+// distribution matches a full Mage-OS 3.0.0 and the mageos-maker module-removal
+// matrix has every set present to strip:
+//  - inventory (MSI) + its composer-installer plugin
+//  - page-builder (required by the page-builder-widget fork below)
+// The two decoupled MSI modules (InventoryGraphQl, InventoryProductAlert) are
+// EXCLUDED from the stock inventory build and instead supplied by the cresset
+// forks (see msiForks) so "remove a core set, keep MSI" still compiles.
+const featureRepos = {
+  'inventory': {repoUrl: 'https://github.com/mage-os/mageos-inventory.git', ref: 'main'},
+  'inventory-composer-installer': {repoUrl: 'https://github.com/mage-os/mageos-inventory-composer-installer.git', ref: 'main'},
+  'page-builder': {repoUrl: 'https://github.com/mage-os/mageos-magento2-page-builder.git', ref: 'main'},
+};
+
+// Drop the two modules we substitute with decoupled forks from the inventory
+// package build (so their package names are produced only once, by the forks).
+const inventoryPackagesConfig = {
+  ...packagesConfig['inventory'],
+  packageDirs: packagesConfig['inventory'].packageDirs.map(pkg => ({
+    ...pkg,
+    excludes: [...pkg.excludes, 'InventoryGraphQl/', 'InventoryProductAlert/'],
+  })),
+};
+
+// ── Decoupled MSI module forks (built into the lockstep release) ─────────────
+// These cresset forks are authored under mage-os/* with mage-os/* deps. The
+// normalizeVendorFromMageOs flag folds them back to magento/ first, so they
+// flow through the standard magento->modulargento rename + replace map and end
+// up as modulargento/module-inventory-{graph-ql,product-alert} at the release
+// version — replacing the stock copies excluded above and satisfying the
+// inventory metapackage's requirements.
+const msiForks = {
+  'module-inventory-graph-ql': {
+    repoUrl: 'https://github.com/cresset-tools/module-inventory-graph-ql.git',
+    ref: 'main',
+    normalizeVendorFromMageOs: true,
+    packageIndividual: [
+      {label: 'Mage-OS Inventory GraphQl Module', dir: '', excludes: []}
+    ],
+  },
+  'module-inventory-product-alert': {
+    repoUrl: 'https://github.com/cresset-tools/module-inventory-product-alert.git',
+    ref: 'main',
+    normalizeVendorFromMageOs: true,
+    packageIndividual: [
+      {label: 'Mage-OS Inventory Product Alert Module', dir: '', excludes: []}
+    ],
+  },
 };
 
 const releaseBuildConfig = {
@@ -100,6 +151,8 @@ const releaseBuildConfig = {
     ]
   },
   ...supportRepos,
+  ...featureRepos,
+  ...msiForks,
 };
 
 // Base structure (packageDirs/packageIndividual/excludes) for every built repo,
@@ -110,12 +163,18 @@ const filteredPackagesConfig = {
 for (const key of Object.keys(supportRepos)) {
   filteredPackagesConfig[key] = packagesConfig[key];
 }
+filteredPackagesConfig['inventory'] = inventoryPackagesConfig;
+filteredPackagesConfig['inventory-composer-installer'] = packagesConfig['inventory-composer-installer'];
+filteredPackagesConfig['page-builder'] = packagesConfig['page-builder'];
 
 // ── Standalone module forks (cresset-tools) ─────────────────────────────────
 // NOT part of the lockstep release — each is published at its own version
 // (latest tag, or composer.json version for the untagged one), keeping its own
-// package name. src/make/modulargento-release.js builds these via
-// createPackageForRef after the lockstep release.
+// package name. Their magento/* deps resolve against the distribution via the
+// modulargento packages' replace map, so no vendor rename is needed.
+// src/make/modulargento-release.js builds these via createPackageForRef after
+// the lockstep release. (The two MSI forks are NOT here — they're folded into
+// the lockstep release via msiForks so they can be renamed to modulargento/*.)
 const moduleBuildConfig = [
   {
     key: 'module-page-builder-widget',
@@ -131,22 +190,6 @@ const moduleBuildConfig = [
     ref: 'main',
     packageIndividual: [
       {label: 'Mage-OS Admin Activity Log Module', dir: '', excludes: []}
-    ],
-  },
-  {
-    key: 'module-inventory-product-alert',
-    repoUrl: 'https://github.com/cresset-tools/module-inventory-product-alert.git',
-    ref: 'main',
-    packageIndividual: [
-      {label: 'Mage-OS Inventory Product Alert Module', dir: '', excludes: []}
-    ],
-  },
-  {
-    key: 'module-inventory-graph-ql',
-    repoUrl: 'https://github.com/cresset-tools/module-inventory-graph-ql.git',
-    ref: 'main',
-    packageIndividual: [
-      {label: 'Mage-OS Inventory GraphQl Module', dir: '', excludes: []}
     ],
   },
 ];

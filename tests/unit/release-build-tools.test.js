@@ -823,3 +823,104 @@ describe('edge cases and error handling', () => {
     });
   });
 });
+
+// ============================================================================
+// Tests for normalizeComposerConfigVendorFromMageOs + the gated path through
+// updateComposerConfigFromMagentoToMageOs (folding cresset mage-os/* forks into
+// a modulargento/* distribution).
+// ============================================================================
+
+describe('normalizeComposerConfigVendorFromMageOs', () => {
+  it('renames the package name and deps from mage-os/ to magento/', () => {
+    const composerConfig = {
+      name: 'mage-os/module-inventory-graph-ql',
+      require: {
+        'php': '~8.3.0',
+        'mage-os/framework': '3.0.0',
+        'mage-os/module-bundle': '3.0.0'
+      }
+    };
+
+    sut.normalizeComposerConfigVendorFromMageOs(composerConfig);
+
+    expect(composerConfig.name).toBe('magento/module-inventory-graph-ql');
+    expect(composerConfig.require).toEqual({
+      'php': '~8.3.0',
+      'magento/framework': '3.0.0',
+      'magento/module-bundle': '3.0.0'
+    });
+  });
+
+  it('leaves non mage-os/ names and platform deps untouched', () => {
+    const composerConfig = {
+      name: 'magento/module-catalog',
+      require: { 'php': '~8.3.0', 'ext-gd': '*', 'magento/framework': '*' },
+      'require-dev': { 'mage-os/some-dev-tool': '1.0.0' },
+      replace: { 'mage-os/module-foo': '*' }
+    };
+
+    sut.normalizeComposerConfigVendorFromMageOs(composerConfig);
+
+    expect(composerConfig.name).toBe('magento/module-catalog');
+    expect(composerConfig.require).toEqual({ 'php': '~8.3.0', 'ext-gd': '*', 'magento/framework': '*' });
+    expect(composerConfig['require-dev']).toEqual({ 'magento/some-dev-tool': '1.0.0' });
+    expect(composerConfig.replace).toEqual({ 'magento/module-foo': '*' });
+  });
+});
+
+describe('updateComposerConfigFromMagentoToMageOs with normalizeVendorFromMageOs', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    isOnPackagist.mockReturnValue(false);
+  });
+
+  it('builds a mage-os/* fork as the release vendor with deps resolved + replace map', () => {
+    const composerConfig = {
+      name: 'mage-os/module-inventory-graph-ql',
+      version: '3.0.0',
+      require: {
+        'php': '~8.3.0',
+        'mage-os/framework': '3.0.0',
+        'mage-os/module-bundle': '3.0.0'
+      }
+    };
+    const instruction = createInstruction({
+      vendor: 'modulargento',
+      normalizeVendorFromMageOs: true
+    });
+    const release = createRelease({
+      version: '3.0.0',
+      dependencyVersions: { '*': '3.0.0' },
+      // Upstream 2.4.8 replace version keyed on the normalized magento/ name.
+      replaceVersions: { 'magento/module-inventory-graph-ql': '100.0.0' }
+    });
+
+    sut.updateComposerConfigFromMagentoToMageOs(instruction, release, composerConfig);
+
+    // Name + deps end up under the modulargento/ vendor, so they resolve
+    // against the rest of the distribution.
+    expect(composerConfig.name).toBe('modulargento/module-inventory-graph-ql');
+    expect(composerConfig.require['modulargento/framework']).toBe('3.0.0');
+    expect(composerConfig.require['modulargento/module-bundle']).toBe('3.0.0');
+    expect(composerConfig.require['php']).toBe('~8.3.0');
+    // The replace map substitutes the upstream Magento package it stands in for.
+    expect(composerConfig.replace).toEqual({ 'magento/module-inventory-graph-ql': '100.0.0' });
+  });
+
+  it('is a no-op normalization when the flag is not set (mage-os/ deps survive)', () => {
+    const composerConfig = {
+      name: 'mage-os/module-inventory-graph-ql',
+      version: '3.0.0',
+      require: { 'mage-os/framework': '3.0.0' }
+    };
+    const instruction = createInstruction({ vendor: 'modulargento' });
+    const release = createRelease({ version: '3.0.0', dependencyVersions: { '*': '3.0.0' } });
+
+    sut.updateComposerConfigFromMagentoToMageOs(instruction, release, composerConfig);
+
+    // Without normalization the mage-os/ name isn't a magento/ name, so the
+    // magento->vendor rename leaves it as-is and the dep does not resolve.
+    expect(composerConfig.name).toBe('mage-os/module-inventory-graph-ql');
+    expect(composerConfig.require['mage-os/framework']).toBe('3.0.0');
+  });
+});

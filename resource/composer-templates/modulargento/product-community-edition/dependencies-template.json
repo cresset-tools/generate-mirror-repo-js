@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "modulargento/inventory-metapackage": "3.0.0",
+    "modulargento/page-builder": "3.0.0",
+    "mage-os/module-page-builder-widget": "https://github.com/cresset-tools/module-page-builder-widget.git",
+    "mage-os/module-admin-activity-log": "https://github.com/cresset-tools/module-admin-activity-log.git"
+  }
+}

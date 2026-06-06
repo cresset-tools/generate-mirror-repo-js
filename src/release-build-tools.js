@@ -134,6 +134,41 @@ function updateMapFromMagentoToMageOs(obj, vendor) {
 }
 
 /**
+ * Rename a single package name from the mage-os/ vendor to magento/.
+ * Leaves non mage-os/ names (php, ext-*, other vendors) untouched.
+ *
+ * @param {String} packageName
+ * @returns {String}
+ */
+function setMagentoVendorFromMageOs(packageName) {
+  return packageName.replace(/^mage-os\//, 'magento/')
+}
+
+/**
+ * Normalize a composer config authored under the mage-os/ vendor back to
+ * magento/ (package name + require/require-dev/suggest/replace keys), so it can
+ * subsequently flow through the regular magento->release-vendor rename and
+ * replace-map machinery exactly like a stock Magento package. Only the deps
+ * that actually carry a magento/ counterpart in the target distribution will
+ * resolve — this is intentional for the cresset forks, whose mage-os/* deps map
+ * 1:1 onto the modulargento/* packages.
+ *
+ * @param {{}} composerConfig
+ */
+function normalizeComposerConfigVendorFromMageOs(composerConfig) {
+  if (composerConfig.name) {
+    composerConfig.name = setMagentoVendorFromMageOs(composerConfig.name)
+  }
+  for (const dependencyType of ['require', 'require-dev', 'suggest', 'replace']) {
+    if (! composerConfig[dependencyType]) continue
+    composerConfig[dependencyType] = Object.keys(composerConfig[dependencyType]).reduce(
+      (acc, pkg) => Object.assign(acc, {[setMagentoVendorFromMageOs(pkg)]: composerConfig[dependencyType][pkg]}),
+      {}
+    )
+  }
+}
+
+/**
  * @param {repositoryBuildDefinition} instruction
  * @param {buildState} release
  * @param {{}} composerConfig
@@ -206,6 +241,14 @@ function updateComposerPluginConfigForMageOs(instruction, release, composerConfi
  * @param {{}} composerConfig
  */
 function updateComposerConfigFromMagentoToMageOs(instruction, release, composerConfig) {
+  // Standalone cresset forks are authored under the mage-os/ vendor with
+  // mage-os/* deps (they target a genuine Mage-OS release). Fold them back to
+  // magento/ first so the rest of this function — vendor rename, dependency
+  // versioning, and the replace map keyed on the original magento/ name —
+  // treats them identically to a stock Magento package.
+  if (instruction.normalizeVendorFromMageOs) {
+    normalizeComposerConfigVendorFromMageOs(composerConfig)
+  }
   const originalPackageName = composerConfig.name
 
   composerConfig.version = release.version || release.ref;
@@ -243,6 +286,7 @@ async function prepPackageForRelease(instruction, pkg, release, workingCopyPath)
 module.exports = {
   validateVersionString,
   updateComposerConfigFromMagentoToMageOs,
+  normalizeComposerConfigVendorFromMageOs,
   async getPackageVersionMap(releaseVersion) {
     const dir = await composerCreateMagentoProject(releaseVersion);
     await installSampleData(dir);
