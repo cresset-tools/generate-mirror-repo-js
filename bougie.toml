@@ -1,0 +1,13 @@
+# bougie configuration. Both this file and composer.json's `extra.bougie`
+# block are first-class. See CLI.md §4.
+
+[php]
+# version = "8.3.12"     # optional override of composer.json's require.php
+# flavor = "nts"          # nts | nts-debug | zts | zts-debug
+
+[composer]
+# version = "stable"      # exact ("2.8.5"), partial ("2.8"), or channel ("stable"/"preview"/"snapshot")
+
+[extensions]
+# xdebug = "3.5.1"           # exact version pin
+# mysqli = false               # opt this baseline extension out of auto-enable

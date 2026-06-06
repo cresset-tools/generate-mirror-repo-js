@@ -75,7 +75,7 @@ class DependencyAnalyzer {
    * Run composer install with better error handling and logging
    */
   async runComposerInstall() {
-    const command = 'composer install --no-progress --no-plugins --no-scripts --no-dev';
+    const command = 'composer install --no-progress --no-plugins --no-scripts --no-dev --ignore-platform-reqs';
     console.log(`Running: ${command}`);
     
     try {

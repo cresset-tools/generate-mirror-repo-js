@@ -1,0 +1,34 @@
+const repo = require('./../repository');
+const parseOptions = require('parse-options');
+const {setArchiveBaseDir} = require('./../package-modules');
+const {processNightlyBuildInstructions} = require('./../release-branch-build-tools');
+const {buildConfig: branchBuildInstructions} = require('./../build-config/modulargento-build-config');
+
+const options = parseOptions(
+  `$outputDir $gitRepoDir $repoUrl @help|h`,
+  process.argv
+);
+
+
+if (options.help) {
+  console.log(`Build Modulargento packages from cresset-tools/modulargento-magento2.
+
+Usage:
+  node src/make/modulargento.js [OPTIONS]
+
+Options:
+  --outputDir=   Dir to contain the built packages (default: packages)
+  --gitRepoDir=  Dir to clone repositories into (default: repositories)
+  --repoUrl=     Composer repository URL to use in base package
+`);
+  process.exit(1);
+}
+
+const archiveDir = options.outputDir || 'packages';
+setArchiveBaseDir(archiveDir);
+
+if (options.gitRepoDir) {
+  repo.setStorageDir(options.gitRepoDir);
+}
+
+processNightlyBuildInstructions(branchBuildInstructions, options.repoUrl || 'https://modulargento.cresset.tools/');

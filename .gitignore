@@ -5,3 +5,14 @@ output
 node_modules
 .idea
 satis
+generate-repo
+
+# Built composer repository (packages.json + p2/ + zip artifacts). Regenerated
+# by `node src/make/modulargento.js`; published to the host, never committed.
+build
+
+# Local PHP env for the build: `bin/php` is a machine-specific symlink and
+# `.bougie/` holds absolute store paths. Both are regenerated (`bougie sync`),
+# only bougie.toml + composer.json are tracked. See MODULARGENTO.md.
+bin/php
+.bougie/
