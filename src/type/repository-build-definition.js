@@ -52,6 +52,16 @@ class repositoryBuildDefinition {
   fromTag = null;
 
   /**
+   * @type Boolean When true, the source composer.json package name and
+   *  dependencies are normalized from the mage-os/ vendor to magento/ before
+   *  the regular magento->release-vendor rename runs. Used to fold standalone
+   *  cresset forks (authored under mage-os/* against a genuine Mage-OS release)
+   *  into a modulargento/* distribution so their deps resolve via the same
+   *  replace map as the stock modules.
+   */
+  normalizeVendorFromMageOs = false;
+
+  /**
    * @type {{}} Tags to skip from the build
    */
   skipTags = {};
@@ -87,6 +97,7 @@ class repositoryBuildDefinition {
     this.vendor = options.vendor || this.vendor;
     this.ref = options.ref || this.ref;
     this.fromTag = options.fromTag || this.fromTag;
+    this.normalizeVendorFromMageOs = options.normalizeVendorFromMageOs || this.normalizeVendorFromMageOs;
     this.skipTags = options.skipTags || this.skipTags;
     this.transform = options.transform || this.transform;
     this.fixVersions = options.fixVersions || this.fixVersions;
