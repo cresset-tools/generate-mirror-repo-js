@@ -141,6 +141,14 @@ const moduleBuildConfig = [
       {label: 'Mage-OS Inventory Product Alert Module', dir: '', excludes: []}
     ],
   },
+  {
+    key: 'module-inventory-graph-ql',
+    repoUrl: 'https://github.com/cresset-tools/module-inventory-graph-ql.git',
+    ref: 'main',
+    packageIndividual: [
+      {label: 'Mage-OS Inventory GraphQl Module', dir: '', excludes: []}
+    ],
+  },
 ];
 
 module.exports = {
