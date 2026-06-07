@@ -95,7 +95,7 @@ const inventoryPackagesConfig = {
   ...packagesConfig['inventory'],
   packageDirs: packagesConfig['inventory'].packageDirs.map(pkg => ({
     ...pkg,
-    excludes: [...pkg.excludes, 'InventoryGraphQl/', 'InventoryProductAlert/'],
+    excludes: [...pkg.excludes, 'InventoryGraphQl/', 'InventoryProductAlert/', 'InventoryLowQuantityNotificationAdminUi/'],
   })),
 };
 
@@ -121,6 +121,18 @@ const msiForks = {
     normalizeVendorFromMageOs: true,
     packageIndividual: [
       {label: 'Mage-OS Inventory Product Alert Module', dir: '', excludes: []}
+    ],
+  },
+  // Low-stock report admin UI, decoupled from Magento_Reports (its export
+  // controllers extended a Reports controller base). Folded into the lockstep
+  // release so it replaces the stock copy excluded above and keeps the
+  // inventory metapackage satisfiable when the reports set is removed.
+  'module-inventory-low-quantity-notification-admin-ui': {
+    repoUrl: 'https://github.com/cresset-tools/module-inventory-low-quantity-notification-admin-ui.git',
+    ref: 'main',
+    normalizeVendorFromMageOs: true,
+    packageIndividual: [
+      {label: 'Mage-OS Inventory Low Quantity Notification Admin UI Module', dir: '', excludes: []}
     ],
   },
 };
