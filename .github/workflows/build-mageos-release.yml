@@ -52,6 +52,7 @@ jobs:
     secrets:
       SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
       REMOTE_USER: ${{ secrets.REMOTE_USER }}
+      REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
   compute-release-service-versions:
     runs-on: ubuntu-latest
     outputs:
