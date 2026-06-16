@@ -46,6 +46,9 @@ on:
       REMOTE_USER:
         description: "The system user used to upload to the satis server."
         required: true
+      REMOTE_HOST:
+        description: "Override the SSH host used for deployment. Set this to the origin IP or an unproxied/DNS-only hostname when repo.mage-os.org is behind the Cloudflare proxy (SSH/port 22 is not proxied). Falls back to repo.mage-os.org when unset."
+        required: false
 
 env:
   remote_host: "repo.mage-os.org"
@@ -107,7 +110,7 @@ jobs:
         name: "Rsync over SSH"
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY }}
-          REMOTE_HOST: ${{ env.remote_host }}
+          REMOTE_HOST: ${{ secrets.REMOTE_HOST || env.remote_host }}
           REMOTE_USER: ${{ secrets.REMOTE_USER }}
           TARGET: ${{ env.remote_dir }}
           ARGS: "--verbose --compress --recursive --links --times --omit-dir-times ${{ env.delete_arg }}"
