@@ -6,6 +6,9 @@ const {
   transformMageOSCommunityEditionProject,
   transformMageOSCommunityEditionProduct
 } = require('../build-metapackage/mage-os-community-edition');
+const {
+  transformModulargentoMinimalProduct
+} = require('../build-metapackage/mage-os-minimal');
 
 const packagesConfig = require('./packages-config');
 const {mergeBuildConfigs} = require('../utils');
@@ -158,6 +161,28 @@ const releaseBuildConfig = {
         transform: [
           transformMagentoCommunityEditionProduct,
           transformMageOSCommunityEditionProduct,
+        ]
+      },
+      {
+        name: 'project-minimal-edition',
+        type: 'project',
+        description: 'Modulargento Minimal Edition Project',
+        transform: [
+          transformMagentoCommunityEditionProject,
+          transformMageOSCommunityEditionProject,
+        ]
+      },
+      {
+        // Leaner than the stock Mage-OS minimal edition: modulargento's decoupling
+        // lets the minimal keep-set drop bundle/grouped/downloadable/swatches/
+        // wishlist/review/newsletter/reports/… (see transformModulargentoMinimalProduct).
+        name: 'product-minimal-edition',
+        type: 'metapackage',
+        description: 'Modulargento Minimal Edition',
+        transform: [
+          transformMagentoCommunityEditionProduct,
+          transformMageOSCommunityEditionProduct,
+          transformModulargentoMinimalProduct,
         ]
       }
     ]
