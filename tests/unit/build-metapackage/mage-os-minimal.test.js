@@ -81,6 +81,7 @@ const LAMINAS_PACKAGES = [
   'laminas/laminas-filter',
   'laminas/laminas-http',
   'laminas/laminas-i18n',
+  'laminas/laminas-view',
   'laminas/laminas-modulemanager',
   'laminas/laminas-mvc',
   'laminas/laminas-permissions-acl',

@@ -7,7 +7,8 @@ const {
   transformMageOSCommunityEditionProduct
 } = require('../build-metapackage/mage-os-community-edition');
 const {
-  transformModulargentoMinimalProduct
+  transformModulargentoMinimalProduct,
+  transformSetDescriptionFromBuildConfig
 } = require('../build-metapackage/mage-os-minimal');
 
 const packagesConfig = require('./packages-config');
@@ -170,6 +171,7 @@ const releaseBuildConfig = {
         transform: [
           transformMagentoCommunityEditionProject,
           transformMageOSCommunityEditionProject,
+          transformSetDescriptionFromBuildConfig,
         ]
       },
       {
@@ -183,6 +185,7 @@ const releaseBuildConfig = {
           transformMagentoCommunityEditionProduct,
           transformMageOSCommunityEditionProduct,
           transformModulargentoMinimalProduct,
+          transformSetDescriptionFromBuildConfig,
         ]
       }
     ]

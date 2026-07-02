@@ -1,3 +1,13 @@
+/** Do not reprocess metapackage versions from past releases. */
+const isHistorical = (composerConfig, release) => composerConfig.version !== release.version;
+
+/** Filter composerConfig.require down to the packages matching predicate. */
+const filterRequire = (composerConfig, predicate) => {
+  composerConfig.require = Object.fromEntries(
+    Object.entries(composerConfig.require || {}).filter(([pkg]) => predicate(pkg))
+  );
+};
+
 /**
  * @param {{}} composerConfig
  * @param {repositoryBuildDefinition} instruction
@@ -5,8 +15,7 @@
  * @param {buildState} release
  */
 async function transformMageOSMinimalProduct(composerConfig, instruction, metapackage, release) {
-  // Do not reprocess historical releases
-  if (composerConfig.version !== release.version) {
+  if (isHistorical(composerConfig, release)) {
     return composerConfig;
   }
 
@@ -165,6 +174,11 @@ async function transformMageOSMinimalProduct(composerConfig, instruction, metapa
     `${instruction.vendor}/module-wishlist`,
     `${instruction.vendor}/theme-adminhtml-backend`,
     `${instruction.vendor}/theme-adminhtml-m137`,
+    // theme-adminhtml-m137 is a standalone fork that keeps its mage-os vendor in
+    // the modulargento distribution (only lockstep monorepo packages are
+    // re-vendored), so the literal name must be preserved too. On mage-os builds
+    // this duplicates the interpolated entry above and the Set dedups it.
+    'mage-os/theme-adminhtml-m137',
     `${instruction.vendor}/theme-frontend-blank`,
     `${instruction.vendor}/theme-frontend-luma`,
     `${instruction.vendor}/zend-cache`,
@@ -173,14 +187,9 @@ async function transformMageOSMinimalProduct(composerConfig, instruction, metapa
   ]);
 
   // Keep only preserved requirements for this minimal distro
-  composerConfig.require = Object.fromEntries(
-    Object.entries(composerConfig.require || {})
-          .filter(
-            ([pkg]) => preservePackages.has(pkg)
-          )
-  );
+  filterRequire(composerConfig, pkg => preservePackages.has(pkg));
 
-  return composerConfig
+  return composerConfig;
 }
 
 /**
@@ -198,7 +207,7 @@ async function transformMageOSMinimalProduct(composerConfig, instruction, metapa
  */
 async function transformModulargentoMinimalProduct(composerConfig, instruction, metapackage, release) {
   await transformMageOSMinimalProduct(composerConfig, instruction, metapackage, release);
-  if (composerConfig.version !== release.version) {
+  if (isHistorical(composerConfig, release)) {
     return composerConfig;
   }
 
@@ -221,15 +230,35 @@ async function transformModulargentoMinimalProduct(composerConfig, instruction, 
     'module-contact',
   ].map(suffix => `${instruction.vendor}/${suffix}`));
 
-  composerConfig.require = Object.fromEntries(
-    Object.entries(composerConfig.require || {})
-          .filter(([pkg]) => !removeExtra.has(pkg))
-  );
+  filterRequire(composerConfig, pkg => !removeExtra.has(pkg));
 
+  return composerConfig;
+}
+
+/**
+ * Apply the build-config metapackage description to the built composer.json.
+ * createMetaPackage takes the description from the source repo's composer.json
+ * and the community-edition transforms hard-code the Community Edition strings,
+ * so without this final step the minimal editions would publish described as
+ * Community Edition.
+ *
+ * @param {{}} composerConfig
+ * @param {repositoryBuildDefinition} instruction
+ * @param {metapackageDefinition} metapackage
+ * @param {buildState} release
+ */
+async function transformSetDescriptionFromBuildConfig(composerConfig, instruction, metapackage, release) {
+  if (isHistorical(composerConfig, release)) {
+    return composerConfig;
+  }
+  if (metapackage.description) {
+    composerConfig.description = metapackage.description;
+  }
   return composerConfig;
 }
 
 module.exports = {
   transformMageOSMinimalProduct,
   transformModulargentoMinimalProduct,
+  transformSetDescriptionFromBuildConfig,
 };
