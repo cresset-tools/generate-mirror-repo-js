@@ -673,7 +673,7 @@ describe('DependencyAnalyzer', () => {
       await analyzer.runComposerInstall();
 
       expect(mockExec).toHaveBeenCalledWith(
-        'composer install --no-progress --no-plugins --no-scripts --no-dev',
+        'composer install --no-progress --no-plugins --no-scripts --no-dev --ignore-platform-reqs',
         expect.objectContaining({
           cwd: '/work/dir'
         })
