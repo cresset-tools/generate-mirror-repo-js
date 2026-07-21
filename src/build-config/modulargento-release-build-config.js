@@ -234,7 +234,19 @@ const moduleBuildConfig = [
   },
 ];
 
+// Prior releases to rebuild into the SAME output on every run, so
+// modulargento.cresset.tools serves every release at once (satis is an artifact
+// repo with require-all:true, so it aggregates all versions present in
+// build/packages). Each entry needs a matching
+// src/build-config/modulargento-release-refs/<version>.js pinning its monorepo
+// ref. Ordered oldest-first; the run's --mageosRelease is built last.
+// Suppress with --skipHistory (e.g. a fast single-version dev build).
+const previousReleases = [
+  {version: '3.1.0', upstreamRelease: '2.4.8'},
+];
+
 module.exports = {
   buildConfig: mergeBuildConfigs(filteredPackagesConfig, releaseBuildConfig),
   moduleBuildConfig,
+  previousReleases,
 };
