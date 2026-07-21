@@ -39,7 +39,7 @@ jobs:
   deploy:
     uses: ./.github/workflows/deploy.yml
     name: "generate & deploy"
-    if: contains('["vinai", "rhoerr", "fballiano", "mage-os-ci"]', github.actor)
+    if: contains('["vinai", "rhoerr", "marcelmtz", "mage-os-ci"]', github.actor)
     with:
       repo: ${{ inputs.repo }}
       remote_dir: ${{ inputs.remote_dir }}
@@ -52,6 +52,7 @@ jobs:
     secrets:
       SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
       REMOTE_USER: ${{ secrets.REMOTE_USER }}
+      REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
   compute-release-service-versions:
     runs-on: ubuntu-latest
     outputs:
