@@ -142,8 +142,13 @@ async function buildModulesAtOwnVersions() {
  * its `replace` map targets. Sources are pinned per instruction from the
  * version's release-refs file (falling back to the config default), so an older
  * release keeps building after `main` advances.
+ *
+ * `frozen` rebuilds an already-published release: its metapackage dependencies
+ * come from resource/history/<vendor>/<metapackage>/<version>.json instead of
+ * the current composer templates, so a template change (a new bundle, say) or a
+ * newer tag of a bundled module does not rewrite what that release shipped.
  */
-async function buildRelease(releaseVersion, upstream) {
+async function buildRelease(releaseVersion, upstream, frozen = false) {
   console.log(`Building ${mageosVendor} release ${releaseVersion}`);
   const releaseRefs = loadReleaseRefs(releaseVersion);
 
@@ -152,6 +157,7 @@ async function buildRelease(releaseVersion, upstream) {
     composerRepoUrl: mageosRepoUrl,
     fallbackVersion: releaseVersion,
     dependencyVersions: {'*': releaseVersion},
+    baselineRef: frozen ? releaseVersion : null,
   });
   distroRelease.replaceVersions = upstream ? await getPackageVersionMap(upstream) : {};
 
@@ -187,7 +193,7 @@ async function buildRelease(releaseVersion, upstream) {
     if (! skipHistory) {
       for (const prev of (previousReleases || [])) {
         if (prev.version === mageosRelease) continue; // don't double-build the target
-        await buildRelease(prev.version, prev.upstreamRelease || '');
+        await buildRelease(prev.version, prev.upstreamRelease || '', true);
       }
     }
 

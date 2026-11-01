@@ -1,0 +1,14 @@
+{
+  "require": {
+    "modulargento/inventory-metapackage": "3.5.0",
+    "modulargento/page-builder": "3.5.0",
+    "mage-os/module-page-builder-widget": "1.5.1",
+    "mage-os/module-admin-activity-log": "2.0.3",
+    "mage-os/module-rma": "2.4.1",
+    "mage-os/module-automatic-translation": "2.3.1",
+    "mage-os/module-meta-robots-tag": "1.2.1",
+    "mage-os/module-theme-optimization": "2.3.0",
+    "mage-os/module-page-builder-template-import-export": "1.9.0",
+    "mage-os/module-inventory-reservations-grid": "1.0.5"
+  }
+}
