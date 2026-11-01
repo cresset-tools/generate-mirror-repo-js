@@ -10,9 +10,8 @@ const metapackageDefinition = require('./metapackage-definition');
  */
 class repositoryBuildDefinition {
   /**
-   * @type String|null The build-config key that produced this instruction
-   *  (e.g. 'magento2'). Used to look a release's pinned source ref up in a
-   *  release-refs file.
+   * @type String|null Identifier of this repository in the build config, used to
+   *  target it individually from a release refs file
    */
   key = null;
 
@@ -96,7 +95,7 @@ class repositoryBuildDefinition {
   extraRefToRelease = [];
 
   /**
-   * @param {{repoUrl: String, packageDirs: Array, packageIndividual: Array, packageMetaFromDirs: Array, vendor: String, ref: String, fromTag: String, skipTags: {Object}, transform: Object.<String,Array>, fixVersions: {Object}, packageReplacements: {Object}, extraRefToRelease: Array, extraMetapackages: Array}}
+   * @param {{key: String, repoUrl: String, packageDirs: Array, packageIndividual: Array, packageMetaFromDirs: Array, vendor: String, ref: String, fromTag: String, skipTags: {Object}, transform: Object.<String,Array>, fixVersions: {Object}, packageReplacements: {Object}, extraRefToRelease: Array, extraMetapackages: Array}}
    */
   constructor(options) {
     this.key = options.key || this.key;

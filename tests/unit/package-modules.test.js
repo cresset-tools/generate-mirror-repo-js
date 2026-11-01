@@ -8,6 +8,7 @@
  * - setArchiveBaseDir
  * - readComposerJson
  * - getLatestTag
+ * - getLatestDependencyVersion
  * - createPackageForRef
  * - createPackagesForRef
  * - createMetaPackageFromRepoDir
@@ -20,6 +21,13 @@
  */
 
 const path = require('path');
+const {PassThrough} = require('stream');
+
+function endedStream() {
+  const stream = new PassThrough();
+  stream.end();
+  return stream;
+}
 
 // Mock dependencies before requiring the module under test
 jest.mock('fs');
@@ -640,6 +648,48 @@ describe('getLatestTag', () => {
 });
 
 // ============================================================================
+// getLatestDependencyVersion tests
+// ============================================================================
+
+describe('getLatestDependencyVersion', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should prefer a tag without the v prefix when the repository has both', async () => {
+    repo.listTags.mockResolvedValue(['v2.0.0', '1.5.0']);
+
+    const result = await sut.getLatestDependencyVersion('https://github.com/vendor/repo.git');
+
+    expect(result).toBe('1.5.0');
+  });
+
+  it('should drop the v prefix when every tag carries one', async () => {
+    repo.listTags.mockResolvedValue(['v1.2.3', 'v1.2.5']);
+
+    const result = await sut.getLatestDependencyVersion('https://github.com/vendor/repo.git');
+
+    expect(result).toBe('1.2.5');
+  });
+
+  it('should leave a tag that merely begins with v alone', async () => {
+    repo.listTags.mockResolvedValue(['vendor-sync']);
+
+    const result = await sut.getLatestDependencyVersion('https://github.com/vendor/repo.git');
+
+    expect(result).toBeUndefined();
+  });
+
+  it('should return undefined when the repository has no tags', async () => {
+    repo.listTags.mockResolvedValue([]);
+
+    const result = await sut.getLatestDependencyVersion('https://github.com/vendor/repo.git');
+
+    expect(result).toBeUndefined();
+  });
+});
+
+// ============================================================================
 // determinePackageForRef tests
 // ============================================================================
 
@@ -791,25 +841,21 @@ describe('determineMetaPackageFromRepoDir', () => {
 
 describe('createPackageForRef', () => {
   let mockZip;
-  let mockStream;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
     // Setup JSZip mock
-    mockStream = {
-      pipe: jest.fn(),
-    };
     mockZip = {
       file: jest.fn(),
-      generateNodeStream: jest.fn().mockResolvedValue(mockStream),
+      generateNodeStream: jest.fn().mockImplementation(endedStream),
     };
     JSZip.mockImplementation(() => mockZip);
 
     // Setup fs mocks
     fs.existsSync.mockReturnValue(false);
     fs.mkdirSync.mockImplementation(() => {});
-    fs.createWriteStream.mockReturnValue({});
+    fs.createWriteStream.mockImplementation(() => new PassThrough());
 
     // Setup repo mocks
     repo.listFiles.mockResolvedValue([
@@ -979,17 +1025,16 @@ describe('createPackagesForRef', () => {
     jest.clearAllMocks();
 
     // Setup JSZip mock
-    const mockStream = { pipe: jest.fn() };
     const mockZip = {
       file: jest.fn(),
-      generateNodeStream: jest.fn().mockResolvedValue(mockStream),
+      generateNodeStream: jest.fn().mockImplementation(endedStream),
     };
     JSZip.mockImplementation(() => mockZip);
 
     // Setup fs mocks
     fs.existsSync.mockReturnValue(false);
     fs.mkdirSync.mockImplementation(() => {});
-    fs.createWriteStream.mockReturnValue({});
+    fs.createWriteStream.mockImplementation(() => new PassThrough());
 
     // Reset archive base dir
     sut.setArchiveBaseDir('packages');
@@ -1073,23 +1118,21 @@ describe('createPackagesForRef', () => {
 
 describe('createMetaPackageFromRepoDir', () => {
   let mockZip;
-  let mockStream;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
     // Setup JSZip mock
-    mockStream = { pipe: jest.fn() };
     mockZip = {
       file: jest.fn(),
-      generateNodeStream: jest.fn().mockResolvedValue(mockStream),
+      generateNodeStream: jest.fn().mockImplementation(endedStream),
     };
     JSZip.mockImplementation(() => mockZip);
 
     // Setup fs mocks
     fs.existsSync.mockReturnValue(false);
     fs.mkdirSync.mockImplementation(() => {});
-    fs.createWriteStream.mockReturnValue({});
+    fs.createWriteStream.mockImplementation(() => new PassThrough());
 
     // Reset archive base dir
     sut.setArchiveBaseDir('packages');
@@ -1167,23 +1210,21 @@ describe('createMetaPackageFromRepoDir', () => {
 
 describe('createMetaPackage', () => {
   let mockZip;
-  let mockStream;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
     // Setup JSZip mock
-    mockStream = { pipe: jest.fn() };
     mockZip = {
       file: jest.fn(),
-      generateNodeStream: jest.fn().mockResolvedValue(mockStream),
+      generateNodeStream: jest.fn().mockImplementation(endedStream),
     };
     JSZip.mockImplementation(() => mockZip);
 
     // Setup fs mocks
     fs.existsSync.mockReturnValue(false);
     fs.mkdirSync.mockImplementation(() => {});
-    fs.createWriteStream.mockReturnValue({});
+    fs.createWriteStream.mockImplementation(() => new PassThrough());
 
     // Reset archive base dir
     sut.setArchiveBaseDir('packages');
@@ -1262,23 +1303,21 @@ describe('createMetaPackage', () => {
 
 describe('createComposerJsonOnlyPackage', () => {
   let mockZip;
-  let mockStream;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
     // Setup JSZip mock
-    mockStream = { pipe: jest.fn() };
     mockZip = {
       file: jest.fn(),
-      generateNodeStream: jest.fn().mockResolvedValue(mockStream),
+      generateNodeStream: jest.fn().mockImplementation(endedStream),
     };
     JSZip.mockImplementation(() => mockZip);
 
     // Setup fs mocks
     fs.existsSync.mockReturnValue(false);
     fs.mkdirSync.mockImplementation(() => {});
-    fs.createWriteStream.mockReturnValue({});
+    fs.createWriteStream.mockImplementation(() => new PassThrough());
     fs.readFileSync.mockReturnValue(Buffer.from('# .gitignore'));
 
     // Reset archive base dir
@@ -1490,23 +1529,21 @@ describe('determinePackagesForRef', () => {
 
 describe('ZIP creation behavior', () => {
   let mockZip;
-  let mockStream;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
     // Setup JSZip mock
-    mockStream = { pipe: jest.fn() };
     mockZip = {
       file: jest.fn(),
-      generateNodeStream: jest.fn().mockResolvedValue(mockStream),
+      generateNodeStream: jest.fn().mockImplementation(endedStream),
     };
     JSZip.mockImplementation(() => mockZip);
 
     // Setup fs mocks
     fs.existsSync.mockReturnValue(false);
     fs.mkdirSync.mockImplementation(() => {});
-    fs.createWriteStream.mockReturnValue({});
+    fs.createWriteStream.mockImplementation(() => new PassThrough());
 
     // Setup repo mocks
     repo.listFiles.mockResolvedValue([
