@@ -308,13 +308,17 @@ function updateComposerConfigFromMagentoToMageOs(instruction, release, composerC
   // composer.json this build already rewrote for that release, so the package
   // is named mage-os/* here, and a replaceVersions lookup under that name
   // misses. Ask under the upstream name the map is keyed by.
-  const upstreamPackageName = setMagentoVendor(originalPackageName, instruction.vendor);
+  const upstreamPackageName = release.legacyReplace
+    ? originalPackageName
+    : setMagentoVendor(originalPackageName, instruction.vendor);
 
   if (release.replaceVersions[upstreamPackageName]) {
     composerConfig.replace = {[upstreamPackageName]: release.replaceVersions[upstreamPackageName]}
   }
 
-  restoreMagentoVendorInReplace(instruction, composerConfig);
+  if (! release.legacyReplace) {
+    restoreMagentoVendorInReplace(instruction, composerConfig);
+  }
 }
 
 /**

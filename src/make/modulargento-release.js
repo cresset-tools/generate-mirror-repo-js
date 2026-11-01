@@ -146,7 +146,8 @@ async function buildModulesAtOwnVersions() {
  * `frozen` rebuilds an already-published release: its metapackage dependencies
  * come from resource/history/<vendor>/<metapackage>/<version>.json instead of
  * the current composer templates, so a template change (a new bundle, say) or a
- * newer tag of a bundled module does not rewrite what that release shipped.
+ * newer tag of a bundled module does not rewrite what that release shipped,
+ * and its replace sections are built the way they were when it was published.
  */
 async function buildRelease(releaseVersion, upstream, frozen = false) {
   console.log(`Building ${mageosVendor} release ${releaseVersion}`);
@@ -158,6 +159,7 @@ async function buildRelease(releaseVersion, upstream, frozen = false) {
     fallbackVersion: releaseVersion,
     dependencyVersions: {'*': releaseVersion},
     baselineRef: frozen ? releaseVersion : null,
+    legacyReplace: frozen,
   });
   distroRelease.replaceVersions = upstream ? await getPackageVersionMap(upstream) : {};
 

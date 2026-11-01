@@ -59,7 +59,15 @@ class buildState {
   baselineRef = null;
 
   /**
-   * @param {{ref: String, origRef: String, version: String, composerRepoUrl: String, fallbackVersion: String, dependencyVersions: Object.<string, string>, replaceVersions: Object.<string, string>, dependencyPins: Object.<string, string>, baselineRef: String}}} options 
+   * @type {Boolean} Rebuild an already-published release byte for byte: look
+   *  the upstream replace up under the package's original name and leave its
+   *  replace section as it is, as releases were built before the lookup moved
+   *  to the upstream name and self-named replace entries were folded back.
+   */
+  legacyReplace = false;
+
+  /**
+   * @param {{ref: String, origRef: String, version: String, composerRepoUrl: String, fallbackVersion: String, dependencyVersions: Object.<string, string>, replaceVersions: Object.<string, string>, dependencyPins: Object.<string, string>, baselineRef: String, legacyReplace: Boolean}}} options 
    */
   constructor(options) {
     this.ref = options.ref || this.ref;
@@ -71,6 +79,7 @@ class buildState {
     this.replaceVersions = options.replaceVersions || this.replaceVersions;
     this.dependencyPins = options.dependencyPins || this.dependencyPins;
     this.baselineRef = options.baselineRef || this.baselineRef;
+    this.legacyReplace = options.legacyReplace || this.legacyReplace;
   }
 };
 
