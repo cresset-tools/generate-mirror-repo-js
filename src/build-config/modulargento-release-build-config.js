@@ -244,6 +244,7 @@ const moduleBuildConfig = [
 const previousReleases = [
   {version: '3.1.0', upstreamRelease: '2.4.8'},
   {version: '3.2.0', upstreamRelease: '2.4.8'},
+  {version: '3.5.0', upstreamRelease: '2.4.9'},
 ];
 
 module.exports = {
