@@ -19,6 +19,8 @@ show_help () {
           --mageosRelease=[1.0.0] The release version (only for build target "release")
           --mageosVendor=[mage-os] The release composer vendor name (only for build target "release")
           --upstreamRelease=[2.4.6-p1] The corresponding Magento Open Source release (only for build target "release")
+          --sconce-url=[https://repo.example.org] Publish the packages to this sconce server instead of building a satis repository
+          --sconce-repo=[org/repo]     The sconce repository to publish to (with --sconce-url)
 
   Possible target(s)
      mirror            Build Magento Open Source mirror repository
@@ -62,6 +64,14 @@ while [[ $# -gt 0 ]]; do
       shift # argument + value
 
       ;;
+      --sconce-url=*)
+      SCONCE_URL="${1#*=}"
+      shift # argument + value
+      ;;
+      --sconce-repo=*)
+      SCONCE_REPO="${1#*=}"
+      shift # argument + value
+      ;;
       --help|-h|help)
       show_help
       shift
@@ -97,6 +107,16 @@ echo "$TARGET" | grep -q "mageos-nightly" && {
 echo "$TARGET" | grep -q "release" && {
   node src/make/mageos-release.js --outputDir="$OUT_DIR" --gitRepoDir="$GIT_REPO_DIR" --repoUrl="$REPO_BASE_URL" \
     --mageosRelease="$RELEASE"  --mageosVendor="$VENDOR" --upstreamRelease="$UPSTREAM_RELEASE"
+}
+
+# Publish to sconce instead of building a satis repository: sconce serves the
+# metadata, dists and index itself, and never changes a published version.
+[[ -n "$SCONCE_URL" ]] && {
+  [[ -z "$SCONCE_REPO" ]] && { echo "--sconce-url needs --sconce-repo" >&2; exit 1; }
+  echo "Publishing to $SCONCE_URL ($SCONCE_REPO)..."
+  node /generate-repo/bin/publish-to-sconce.js --packagesDir="$OUT_DIR" \
+    --sconceUrl="$SCONCE_URL" --sconceRepo="$SCONCE_REPO"
+  exit $?
 }
 
 echo Running satis...

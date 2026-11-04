@@ -51,6 +51,26 @@ This build target requires a number of additional arguments:
 * `--upstreamRelease=2.4.6-p1` The corresponding Magento Open Source release.
 
 
+### Publishing to sconce instead of satis
+
+With `--sconce-url` and `--sconce-repo`, the generated packages are published to a
+[sconce](https://github.com/cresset-tools/sconce) Composer repository with `sconce publish`
+instead of being built into a satis repository. sconce serves the metadata, the dists and a
+browsable index itself, so nothing needs to be copied to a web server afterwards.
+
+- Versions the repository already serves are skipped, so a run that rebuilds every release
+  only uploads the new ones.
+- sconce never changes a published version: publishing the same contents again is a no-op,
+  and different contents are refused (and reported, failing the run), so a version can never
+  be replaced under the lock files that pin it.
+- Packages are published as `public` (may be redistributed).
+- Authentication is `sconce publish`'s own: the GitHub Actions or GitLab CI OIDC exchange
+  when run in CI, or a publish token in `SCONCE_PUBLISH_TOKEN`.
+
+Example: `--sconce-url=https://repo.example.org --sconce-repo=mage-os/releases`
+
+Outside docker, run `node bin/publish-to-sconce.js --help` after building the packages.
+
 ### Caching git repositories
 
 Caching git repos is optional. Without caching, every git repository will be cloned each time the repo is generated. This ensures the latest versions will be used to generate the packages.  

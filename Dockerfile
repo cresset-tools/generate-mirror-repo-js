@@ -3,6 +3,19 @@ FROM composer/satis AS build
 
 RUN apk add nodejs npm jq
 
+# sconce, to publish the packages with --sconce-url instead of building satis.
+# The static musl build runs on this Alpine image; pinned and checksummed.
+ARG SCONCE_VERSION=0.8.0
+RUN cd /tmp && \
+    asset=sconce-x86_64-unknown-linux-musl && \
+    base="https://github.com/cresset-tools/sconce/releases/download/sconce-v${SCONCE_VERSION}" && \
+    curl -fsSLO "$base/$asset.tar.gz" && \
+    echo "$(curl -fsSL "$base/$asset.tar.gz.sha256" | cut -d' ' -f1)  $asset.tar.gz" | sha256sum -c - && \
+    tar -xzf "$asset.tar.gz" && \
+    install -m 0755 "$asset/sconce" /usr/local/bin/sconce && \
+    rm -rf /tmp/sconce* && \
+    sconce --version
+
 ENV NODE_ENV=production
 
 ADD https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
