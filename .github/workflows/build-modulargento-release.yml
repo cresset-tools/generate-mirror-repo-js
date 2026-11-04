@@ -1,46 +1,92 @@
-name: "Build & deploy Modulargento release"
+name: "Build & publish Modulargento release"
+
+# Builds one Modulargento release and publishes its packages to the sconce
+# repository behind modulargento.cresset.tools. sconce keeps every earlier
+# release, so only this one is built. A package version sconce already serves
+# is compared, not republished: identical files are skipped, different files
+# fail the run. A changed build needs a new version number.
 
 on:
   workflow_dispatch:
     inputs:
       mageos_release:
-        description: 'Modulargento release version (e.g. 3.0.0)'
+        description: 'Modulargento release version (e.g. 4.0.1)'
         required: true
-        default: '3.0.0'
         type: string
       upstream_release:
-        description: 'Magento Open Source version for compatibility (e.g. 2.4.8)'
+        description: 'Magento Open Source version for compatibility (e.g. 2.4.9)'
         required: true
-        default: '2.4.8'
         type: string
       repo:
-        description: 'Composer repository URL'
+        description: 'Composer repository URL embedded in the packages'
         required: true
         default: 'https://modulargento.cresset.tools/'
         type: string
-      remote_dir:
-        description: 'Deploy target directory on the origin host'
+      sconce_url:
+        description: 'sconce server to publish to'
         required: true
-        default: '/srv/modulargento/'
+        default: 'https://bougierepo.com'
         type: string
-      remote_host:
-        description: 'SSH host to rsync to (resolves to the origin)'
+      sconce_repo:
+        description: 'sconce repository, as <org>/<repo>'
         required: true
-        default: 'modulargento.cresset.tools'
+        default: 'modulargento/releases'
         type: string
 
+permissions:
+  contents: read
+  # sconce publish exchanges the job's OIDC token for a short-lived publish
+  # token, so no secret is stored.
+  id-token: write
+
+env:
+  SCONCE_VERSION: 0.8.0
+  # Inputs reach the scripts through the environment, never spliced into them.
+  MAGEOS_RELEASE: ${{ inputs.mageos_release }}
+  UPSTREAM_RELEASE: ${{ inputs.upstream_release }}
+  REPO_URL: ${{ inputs.repo }}
+  SCONCE_URL: ${{ inputs.sconce_url }}
+  SCONCE_REPO: ${{ inputs.sconce_repo }}
+
 jobs:
-  deploy:
-    uses: ./.github/workflows/deploy.yml
-    name: "generate & deploy"
-    with:
-      repo: ${{ inputs.repo }}
-      remote_dir: ${{ inputs.remote_dir }}
-      remote_host: ${{ inputs.remote_host }}
-      entrypoint: src/make/modulargento-release.js
-      delete: true
-      mageos_release: ${{ inputs.mageos_release }}
-      upstream_release: ${{ inputs.upstream_release }}
-    secrets:
-      SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
-      REMOTE_USER: ${{ secrets.REMOTE_USER }}
+  publish:
+    runs-on: ubuntu-latest
+    name: "Publish ${{ inputs.mageos_release }} to ${{ inputs.sconce_repo }}"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.3
+          tools: composer:2.7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - run: npm ci
+
+      - name: "Put the committed PHP dependency analyzer on PATH"
+        run: install -m 0755 bin/php-classes.phar /usr/local/bin/php-classes.phar
+
+      - name: "Install sconce (pinned, checksummed)"
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          asset=sconce-x86_64-unknown-linux-musl
+          base="https://github.com/cresset-tools/sconce/releases/download/sconce-v${SCONCE_VERSION}"
+          curl -fsSLO "$base/$asset.tar.gz"
+          echo "$(curl -fsSL "$base/$asset.tar.gz.sha256" | cut -d' ' -f1)  $asset.tar.gz" | sha256sum -c -
+          tar -xzf "$asset.tar.gz"
+          install -m 0755 "$asset/sconce" /usr/local/bin/sconce
+          sconce --version
+
+      - name: "Build the release packages"
+        run: |
+          node src/make/modulargento-release.js --skipHistory \
+            --outputDir=build/packages --gitRepoDir=generate-repo/repositories \
+            --repoUrl="$REPO_URL" \
+            --mageosRelease="$MAGEOS_RELEASE" --upstreamRelease="$UPSTREAM_RELEASE"
+
+      - name: "Publish to sconce"
+        run: |
+          node bin/publish-to-sconce.js --packagesDir=build/packages \
+            --sconceUrl="$SCONCE_URL" --sconceRepo="$SCONCE_REPO"

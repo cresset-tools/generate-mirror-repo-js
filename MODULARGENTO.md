@@ -42,19 +42,25 @@ inherited tag, so packages are built from a committed prep work-branch instead.
 
 ## Release via CI (primary path)
 
-Dispatch the **Build & deploy Modulargento release** workflow
+Dispatch the **Build & publish Modulargento release** workflow
 (`.github/workflows/build-modulargento-release.yml`) with:
 
-- `mageos_release` — e.g. `3.0.0`
-- `upstream_release` — the Magento OSS version for compatibility, e.g. `2.4.8`
-- `repo` — `https://modulargento.cresset.tools/`
-- `remote_dir` — `/srv/modulargento/`
-- `remote_host` — an SSH host that resolves to the origin (e.g. `modulargento.cresset.tools`)
+- `mageos_release` — e.g. `4.0.1`
+- `upstream_release` — the Magento OSS version for compatibility, e.g. `2.4.9`
 
-It calls the shared `deploy.yml`, which builds, runs satis, rewrites dist URLs to
-the repo URL, and rsyncs the result to `remote_host:remote_dir`. Requires the
-repo secrets `SERVER_SSH_KEY` + `REMOTE_USER` (already configured) and the
-matching public key authorized on the origin's `deploy` user.
+It builds only that release (`--skipHistory`) and publishes each package with
+`bin/publish-to-sconce.js` to the sconce repository `modulargento/releases`
+on `https://bougierepo.com`, which serves it at
+<https://modulargento.cresset.tools/>. The job authenticates with its GitHub
+OIDC token (a CI publish policy on the repository allows only this workflow on
+`main`), so no secret is stored.
+
+**Published versions never change.** sconce keeps every earlier release, so
+nothing is rebuilt. A package version it already serves is compared file by
+file with the new build: identical files are skipped (the standalone forks at
+an unchanged version, say), different files fail the run. To ship a change,
+publish it under a new version: a new `mageos_release` for the lockstep
+packages, a new tag for a standalone fork.
 
 ## Local dry run
 
@@ -90,7 +96,15 @@ which bougie's installer skips on extract.)
 
 ## Publish target
 
-The deployable tree is `build/` (`packages.json`, `p2/`, `include/`,
-`index.html`, `packages/`), served by nginx at the host root with `/packages/`
-under an immutable cache. The vhost lives in the `infra` repo
-(`hosts/origin/nginx.nix`, docroot `/srv/modulargento`).
+The sconce repository `modulargento/releases` (anonymous access, every package
+public), mapped to the custom domain `modulargento.cresset.tools` with
+`sconce repo-domain`; the nginx vhost lives in `operations/infra`
+(`hosts/bougierepo/configuration.nix`). The releases published before the move
+(3.1.0, 3.2.0, 3.5.0, 4.0.0) were mirrored from the old static repository with
+their exact bytes and dist paths, so existing lock files keep installing.
+
+The local dry run above still builds a satis tree for inspecting a build;
+`node bin/publish-to-sconce.js --packagesDir=build/packages
+--sconceUrl=https://bougierepo.com --sconceRepo=modulargento/releases
+--sconceBin=false` checks a build against what is published without uploading
+anything (every new version then shows as a failure).

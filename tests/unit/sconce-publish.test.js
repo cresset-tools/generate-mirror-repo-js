@@ -2,7 +2,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const JSZip = require('jszip');
-const {publishArchives, findArchives} = require('../../src/sconce-publish');
+const {publishArchives, findArchives, archiveContents} = require('../../src/sconce-publish');
 
 async function writeArchive(dir, name, version, files = {}) {
   const zip = new JSZip();
@@ -16,12 +16,26 @@ async function writeArchive(dir, name, version, files = {}) {
   return file;
 }
 
+// A fake sconce: `versionsByName` maps a package to {version: dist zip bytes}.
 const served = versionsByName => async url => {
+  if (url.includes('/dist/')) {
+    const [name, version] = decodeURIComponent(url.split('/dist/')[1]).split('@');
+    const bytes = versionsByName[name][version];
+    return {ok: true, status: 200, arrayBuffer: async () => bytes};
+  }
   const name = url.split('/p2/')[1].replace(/\.json$/, '');
   const versions = versionsByName[name];
   if (!versions) return {ok: false, json: async () => ({})};
-  return {ok: true, json: async () => ({packages: {[name]: versions.map(version => ({version}))}})};
+  return {ok: true, json: async () => ({packages: {[name]: Object.keys(versions).map(version => (
+    {version, dist: {type: 'zip', url: `https://repo.example.org/dist/${encodeURIComponent(name + '@' + version)}`}}
+  ))}})};
 };
+
+async function zipBytes(entries, opts = {}) {
+  const zip = new JSZip();
+  for (const [p, [content, mode]] of Object.entries(entries)) zip.file(p, content, {unixPermissions: mode, date: opts.date});
+  return zip.generateAsync({type: 'nodebuffer', platform: 'UNIX', compression: opts.compression || 'STORE'});
+}
 
 describe('publishArchives', () => {
   let dir;
@@ -51,7 +65,11 @@ describe('publishArchives', () => {
       packagesDir: dir,
       sconceUrl: 'https://repo.example.org/',
       repo: 'mage-os/releases',
-      fetchImpl: served({'mage-os/module-a': ['1.0.0']}),
+      // 1.0.0 is published with the same files, zipped differently.
+      fetchImpl: served({'mage-os/module-a': {'1.0.0': await zipBytes(
+        {'composer.json': [JSON.stringify({name: 'mage-os/module-a', version: '1.0.0'}), '644']},
+        {date: new Date('2020-01-01'), compression: 'DEFLATE'},
+      )}}),
       run,
       concurrency: 1,
     });
@@ -82,6 +100,36 @@ describe('publishArchives', () => {
     expect(result.failed).toHaveLength(2);
     expect(result.failed.join('\n')).toMatch(/mage-os\/module-a 1\.0\.0/);
     expect(result.failed.join('\n')).toMatch(/broken\.zip/);
+  });
+
+  test('fails a rebuilt version whose files differ from the published one', async () => {
+    await writeArchive(dir, 'mage-os/module-a', '1.0.0', {'src/A.php': ['<?php // new', '644']});
+    await writeArchive(dir, 'mage-os/module-b', '1.0.0', {'bin/run': ['#!/bin/sh', '755']});
+    const composer = name => [JSON.stringify({name, version: '1.0.0'}), '644'];
+    const calls = [];
+    const result = await publishArchives({
+      packagesDir: dir,
+      sconceUrl: 'https://repo.example.org',
+      repo: 'o/r',
+      fetchImpl: served({
+        'mage-os/module-a': {'1.0.0': await zipBytes({'composer.json': composer('mage-os/module-a'), 'src/A.php': ['<?php // old', '644']})},
+        'mage-os/module-b': {'1.0.0': await zipBytes({'composer.json': composer('mage-os/module-b'), 'bin/run': ['#!/bin/sh', '644']})},
+      }),
+      run: async args => (calls.push(args), 0),
+    });
+    expect(calls).toEqual([]);
+    expect(result.published).toBe(0);
+    expect(result.failed.sort()).toEqual([
+      'mage-os/module-a 1.0.0 differs from the published version (src/A.php changed); publish it as a new version',
+      'mage-os/module-b 1.0.0 differs from the published version (bin/run changed mode); publish it as a new version',
+    ]);
+  });
+
+  test('reads contents relative to the composer.json, ignoring a top directory', async () => {
+    const flat = await archiveContents(await JSZip.loadAsync(await zipBytes({'composer.json': ['{}', '644'], 'a/b.php': ['x', '644']})));
+    const nested = await archiveContents(await JSZip.loadAsync(await zipBytes({'pkg-1.0/composer.json': ['{}', '644'], 'pkg-1.0/a/b.php': ['x', '644']})));
+    expect([...nested]).toEqual([...flat]);
+    expect([...flat.keys()].sort()).toEqual(['a/b.php', 'composer.json']);
   });
 
   test('finds archives recursively, in a stable order', async () => {
