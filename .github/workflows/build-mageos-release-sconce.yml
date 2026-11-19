@@ -54,7 +54,7 @@ permissions:
   id-token: write
 
 env:
-  SCONCE_VERSION: 0.10.1
+  SCONCE_VERSION: 0.12.2
   # Inputs reach the scripts through the environment, never spliced into them.
   MAGEOS_RELEASE: ${{ inputs.mageos_release }}
   UPSTREAM_RELEASE: ${{ inputs.upstream_release }}
